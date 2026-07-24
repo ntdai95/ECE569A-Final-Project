@@ -29,7 +29,7 @@ LAVENDER = "#f6f0ff"
 INK = "#24324a"
 ARTIFACT_DIR = Path("artifacts")
 ARTIFACT_DIR.mkdir(exist_ok=True)
-TESTSET_EXAMPLES_PATH = ARTIFACT_DIR / "demo_testset_examples.joblib"
+TESTSET_EXAMPLES_PATH = ARTIFACT_DIR / "demo_testset_examples_v2.joblib"
 BERT_CLASSIFIERS_PATH = ARTIFACT_DIR / "bert_demo_classifiers.joblib"
 
 st.markdown(
@@ -135,9 +135,24 @@ def load_data():
     return df, data_path
 
 
+@st.cache_data(show_spinner=False)
+def get_demo_split():
+    df, _ = load_data()
+    idx_train, idx_test = train_test_split(
+        df.index,
+        test_size=0.2,
+        random_state=42,
+        stratify=df["queue"],
+    )
+    train_df = df.loc[idx_train].reset_index(drop=True)
+    test_df = df.loc[idx_test].reset_index(drop=True)
+    return train_df, test_df
+
+
 @st.cache_resource(show_spinner=True)
 def train_demo_assets():
     df, _ = load_data()
+    train_df, test_df = get_demo_split()
 
     tfidf_params = {
         "max_features": 15000,
@@ -191,12 +206,6 @@ def train_demo_assets():
             "queue": linear_svm_queue,
             "blurb": "Our main classical classifier from the repo.",
         },
-        "Retrieval + kNN (k=1)": {
-            "type": knn1_type,
-            "priority": knn1_priority,
-            "queue": knn1_queue,
-            "blurb": "The best retrieval setting in our experiments.",
-        },
         "Retrieval + kNN (k=3)": {
             "type": knn3_type,
             "priority": knn3_priority,
@@ -206,15 +215,17 @@ def train_demo_assets():
     }
 
     for model_group in models.values():
-        model_group["type"].fit(df["combined_text"], df["type"])
-        model_group["priority"].fit(df["combined_text"], df["priority"])
-        model_group["queue"].fit(df["combined_text"], df["queue"])
+        model_group["type"].fit(train_df["combined_text"], train_df["type"])
+        model_group["priority"].fit(train_df["combined_text"], train_df["priority"])
+        model_group["queue"].fit(train_df["combined_text"], train_df["queue"])
 
     retrieval_vectorizer = TfidfVectorizer(**tfidf_params)
-    retrieval_matrix = retrieval_vectorizer.fit_transform(df["combined_text"])
+    retrieval_matrix = retrieval_vectorizer.fit_transform(train_df["combined_text"])
 
     return {
         "df": df,
+        "train_df": train_df,
+        "test_df": test_df,
         "models": models,
         "retrieval_vectorizer": retrieval_vectorizer,
         "retrieval_matrix": retrieval_matrix,
@@ -224,6 +235,7 @@ def train_demo_assets():
 @st.cache_resource(show_spinner=True)
 def load_bert_demo_assets():
     df, _ = load_data()
+    train_df, test_df = get_demo_split()
 
     bert_model_name = "distilbert-base-uncased"
     device = torch.device("cpu")
@@ -278,7 +290,7 @@ def load_bert_demo_assets():
         saved = joblib.load(BERT_CLASSIFIERS_PATH)
         models = saved["models"]
     else:
-        X_bert = embed_texts(df["combined_text"])
+        X_bert = embed_texts(train_df["combined_text"])
         models = {
             task: build_pipeline(params)
             for task, params in best_params.items()
@@ -286,7 +298,7 @@ def load_bert_demo_assets():
 
         for task, model in models.items():
             model.named_steps["nn"].early_stopping = False
-            model.fit(X_bert, df[task])
+            model.fit(X_bert, train_df[task])
 
         joblib.dump({
             "models": models,
@@ -295,6 +307,8 @@ def load_bert_demo_assets():
 
     return {
         "df": df,
+        "train_df": train_df,
+        "test_df": test_df,
         "tokenizer": tokenizer,
         "bert_model": bert_model,
         "device": device,
@@ -327,7 +341,7 @@ def retrieve_neighbors(query_text: str, assets, top_k: int = 5):
     query_vec = assets["retrieval_vectorizer"].transform([query_text])
     sims = cosine_similarity(query_vec, assets["retrieval_matrix"]).ravel()
 
-    candidate_df = assets["df"].copy()
+    candidate_df = assets["train_df"].copy()
     candidate_df = candidate_df.assign(similarity=sims)
 
     normalized_query = query_text.strip().lower()
@@ -336,7 +350,7 @@ def retrieve_neighbors(query_text: str, assets, top_k: int = 5):
     ].copy()
 
     if candidate_df.empty:
-        candidate_df = assets["df"].copy()
+        candidate_df = assets["train_df"].copy()
         candidate_df = candidate_df.assign(similarity=sims)
 
     neighbors = candidate_df.sort_values("similarity", ascending=False).head(top_k).copy()
@@ -354,11 +368,11 @@ def suggest_priority_reason(priority: str) -> str:
 
 def sample_examples(df: pd.DataFrame):
     examples = {}
-    for queue_name in ["Technical Support", "Billing and Payments", "Customer Service", "Product Support"]:
+    for idx, queue_name in enumerate(["Technical Support", "Billing and Payments", "Customer Service", "Product Support"], start=1):
         sample = df[df["queue"] == queue_name].head(1)
         if not sample.empty:
             row = sample.iloc[0]
-            examples[queue_name] = {
+            examples[f"Demo Example {idx}"] = {
                 "subject": row["subject"],
                 "body": row["body"],
             }
@@ -370,15 +384,7 @@ def build_testset_examples():
     if TESTSET_EXAMPLES_PATH.exists():
         return joblib.load(TESTSET_EXAMPLES_PATH)
 
-    df, _ = load_data()
-    idx_train, idx_test = train_test_split(
-        df.index,
-        test_size=0.2,
-        random_state=42,
-        stratify=df["queue"],
-    )
-    train_df = df.loc[idx_train].reset_index(drop=True)
-    test_df = df.loc[idx_test].reset_index(drop=True)
+    train_df, test_df = get_demo_split()
 
     tfidf_params = {
         "max_features": 15000,
@@ -400,7 +406,6 @@ def build_testset_examples():
 
     model_builders = {
         "TF-IDF + Linear SVM": make_linear_svm,
-        "Retrieval + kNN (k=1)": lambda: make_knn(1),
         "Retrieval + kNN (k=3)": lambda: make_knn(3),
     }
 
@@ -478,9 +483,9 @@ def build_testset_examples():
                     break
 
         examples = []
-        for row in selected_rows:
+        for example_idx, row in enumerate(selected_rows, start=1):
             examples.append({
-                "label": f"{row['queue']} | {row['priority']} | {row['type']} ⭐",
+                "label": f"Test Example {example_idx}",
                 "subject": row["subject"],
                 "body": row["body"],
                 "combined_text": row["combined_text"],
@@ -511,7 +516,6 @@ examples = sample_examples(df)
 testset_examples = build_testset_examples()
 MODEL_OPTIONS = [
     "TF-IDF + Linear SVM",
-    "Retrieval + kNN (k=1)",
     "Retrieval + kNN (k=3)",
     "DistilBERT + NN",
 ]
@@ -521,12 +525,11 @@ st.markdown(
     <div class="hero-card">
       <div class="hero-title">🎀 Ticket Buddy Demo</div>
       <div class="hero-subtitle">
-        A cute little support-ticket assistant for our ECE 569A project. It predicts <b>ticket type</b>,
-        <b>priority</b>, and <b>destination queue</b>, then shows the most similar historical tickets for explanation.
+        It predicts <b>ticket type</b>, <b>priority</b>, and <b>destination queue</b> from support ticket text.
       </div>
         <div class="pill-row">
         <div class="pill">Dataset: {len(df):,} English tickets</div>
-        <div class="pill">Models: Linear SVM, kNN (k=1), kNN (k=3)</div>
+        <div class="pill">Models: Linear SVM, kNN (k=3), DistilBERT + NN</div>
         <div class="pill">Explainer: Retrieval + cosine similarity</div>
         <div class="pill">Source: {data_path}</div>
       </div>
