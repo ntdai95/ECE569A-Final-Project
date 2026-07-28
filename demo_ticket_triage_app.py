@@ -2,9 +2,9 @@ from pathlib import Path
 
 import joblib
 import numpy as np
+import torch
 import pandas as pd
 import streamlit as st
-import torch
 from genetic_algorithm import build_pipeline
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
