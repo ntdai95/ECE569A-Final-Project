@@ -77,4 +77,4 @@ The demo expects the processed English dataset to be available at one of these p
 
 - The kNN models use retrieved historical tickets for prediction and explanation.
 - The DistilBERT + NN model uses DistilBERT embeddings together with the neural network settings selected in our project experiments.
-- The demo is intended for presentation and comparison purposes rather than production deployment.
+- The demo is built for presentation and comparison. It is not a production deployment.
