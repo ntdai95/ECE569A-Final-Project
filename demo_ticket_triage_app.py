@@ -199,6 +199,19 @@ def train_demo_assets():
         ("clf", KNeighborsClassifier(n_neighbors=3, metric="cosine", weights="distance", algorithm="brute")),
     ])
 
+    knn5_type = Pipeline([
+        ("tfidf", TfidfVectorizer(**tfidf_params)),
+        ("clf", KNeighborsClassifier(n_neighbors=5, metric="cosine", weights="distance", algorithm="brute")),
+    ])
+    knn5_priority = Pipeline([
+        ("tfidf", TfidfVectorizer(**tfidf_params)),
+        ("clf", KNeighborsClassifier(n_neighbors=5, metric="cosine", weights="distance", algorithm="brute")),
+    ])
+    knn5_queue = Pipeline([
+        ("tfidf", TfidfVectorizer(**tfidf_params)),
+        ("clf", KNeighborsClassifier(n_neighbors=5, metric="cosine", weights="distance", algorithm="brute")),
+    ])
+
     models = {
         "TF-IDF + Linear SVM": {
             "type": linear_svm_type,
@@ -206,11 +219,23 @@ def train_demo_assets():
             "queue": linear_svm_queue,
             "blurb": "Our main classical classifier from the repo.",
         },
+        "Retrieval + kNN (k=1)": {
+            "type": knn1_type,
+            "priority": knn1_priority,
+            "queue": knn1_queue,
+            "blurb": "A nearest-ticket baseline that uses one historical example.",
+        },
         "Retrieval + kNN (k=3)": {
             "type": knn3_type,
             "priority": knn3_priority,
             "queue": knn3_queue,
             "blurb": "A small-neighborhood retrieval model that uses three similar tickets.",
+        },
+        "Retrieval + kNN (k=5)": {
+            "type": knn5_type,
+            "priority": knn5_priority,
+            "queue": knn5_queue,
+            "blurb": "The five-neighbor model used for the reported comparison.",
         },
     }
 
@@ -406,7 +431,9 @@ def build_testset_examples():
 
     model_builders = {
         "TF-IDF + Linear SVM": make_linear_svm,
+        "Retrieval + kNN (k=1)": lambda: make_knn(1),
         "Retrieval + kNN (k=3)": lambda: make_knn(3),
+        "Retrieval + kNN (k=5)": lambda: make_knn(5),
     }
 
     all_predictions = {}
@@ -499,7 +526,7 @@ def build_testset_examples():
 def compare_all_demo_models(subject: str, body: str, assets):
     combined_text = f"{subject.strip()} {body.strip()}".strip()
     rows = []
-    for model_name in ["TF-IDF + Linear SVM", "Retrieval + kNN (k=1)", "Retrieval + kNN (k=3)"]:
+    for model_name in ["TF-IDF + Linear SVM", "Retrieval + kNN (k=1)", "Retrieval + kNN (k=3)", "Retrieval + kNN (k=5)"]:
         selected = assets["models"][model_name]
         rows.append({
             "model": model_name,
@@ -516,7 +543,9 @@ examples = sample_examples(df)
 testset_examples = build_testset_examples()
 MODEL_OPTIONS = [
     "TF-IDF + Linear SVM",
+    "Retrieval + kNN (k=1)",
     "Retrieval + kNN (k=3)",
+    "Retrieval + kNN (k=5)",
     "DistilBERT + NN",
 ]
 
@@ -529,7 +558,7 @@ st.markdown(
       </div>
         <div class="pill-row">
         <div class="pill">Dataset: {len(df):,} English tickets</div>
-        <div class="pill">Models: Linear SVM, kNN (k=3), DistilBERT + NN</div>
+        <div class="pill">Models: Linear SVM, kNN (k=1/3/5), DistilBERT + NN</div>
         <div class="pill">Explainer: Retrieval + cosine similarity</div>
         <div class="pill">Source: {data_path}</div>
       </div>

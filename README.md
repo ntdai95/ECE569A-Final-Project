@@ -1,6 +1,18 @@
 # Support Ticket Triage
 
-This repository contains our ECE 569A final project on customer support ticket triage.  
+This ECE 569A project was completed by a team of four and compares customer support ticket triage models on the same three prediction tasks. Retrieval kNN at k=5 achieved the strongest accuracy across ticket type, priority, and destination queue. For queue routing, it reached **0.702 accuracy versus 0.597 for DistilBERT**.
+
+## Headline Results
+
+The held-out test set contained 3,268 English-language tickets. The table reports accuracy from the saved notebook outputs.
+
+| Model | Ticket type | Priority | Queue |
+|---|---:|---:|---:|
+| **Retrieval kNN (k=5)** | **0.892** | **0.759** | **0.702** |
+| DistilBERT + neural network | 0.880 | 0.692 | 0.597 |
+
+The Streamlit demo exposes the three predictions and shows the historical tickets retrieved by the kNN models, so users can inspect the examples behind a result.
+
 We study three prediction tasks from ticket text:
 
 - ticket `type`
@@ -29,6 +41,7 @@ The Streamlit demo lets you:
 - `TF-IDF + Linear SVM`
 - `Retrieval + kNN (k=1)`
 - `Retrieval + kNN (k=3)`
+- `Retrieval + kNN (k=5)`
 - `DistilBERT + NN`
 
 The demo also includes cached artifacts in `artifacts/` so that:
