@@ -1,4 +1,4 @@
-# ECE-569A
+# Support Ticket Triage
 
 This repository contains our ECE 569A final project on customer support ticket triage.  
 We study three prediction tasks from ticket text:
