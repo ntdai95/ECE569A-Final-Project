@@ -1,6 +1,6 @@
 # Support Ticket Triage
 
-This ECE 569A project was completed by a team of four and compares customer support ticket triage models on the same three prediction tasks. Retrieval kNN at k=5 achieved the strongest accuracy across ticket type, priority, and destination queue. For queue routing, it reached **0.702 accuracy versus 0.597 for DistilBERT**.
+This project was completed by a team of four for Selected Topics in Computer Engineering: AI (ECE 569A) at the University of Victoria. It compares customer support ticket triage models on the same three prediction tasks. Retrieval kNN at k=5 achieved the strongest accuracy across ticket type, priority, and destination queue. For queue routing, it reached **0.702 accuracy versus 0.597 for DistilBERT**.
 
 ## Headline Results
 
